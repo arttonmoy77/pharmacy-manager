@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pharmacy Manager</title>
+<link rel="icon" href="favicon.ico">
+<script src="/eel.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f3f6f4;--sf:#fff;--ink:#1b2826;--mut:#5f6f6c;--ln:#dbe3df;--ac:#0f6b5c;--on:#fff;--wn:#a55f00;--bd:#b3261e;--wb:#fdf0d9;--bb:#fbe3e0;--gb:#dff0ea;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121917;--sf:#1a2421;--ink:#e6efec;--mut:#98aaa5;--ln:#2b3935;--ac:#4fc3ae;--on:#08201b;--wn:#f0b45a;--bd:#ff8a80;--wb:#33270f;--bb:#3a1b18;--gb:#17332d;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121917;--sf:#1a2421;--ink:#e6efec;--mut:#98aaa5;--ln:#2b3935;--ac:#4fc3ae;--on:#08201b;--wn:#f0b45a;--bd:#ff8a80;--wb:#33270f;--bb:#3a1b18;--gb:#17332d;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 "Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+header{background:var(--sf);border-bottom:1px solid var(--ln);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.bar{max-width:1100px;margin:auto;display:flex;align-items:center;gap:20px;padding:10px 16px;flex-wrap:wrap}
+.logo{font-weight:700;font-size:18px;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+.logo i{width:22px;height:22px;border-radius:50%;background:linear-gradient(90deg,var(--ac) 50%,var(--wn) 50%);display:inline-block;transform:rotate(-35deg)}
+nav{display:flex;gap:4px;overflow-x:auto}
+nav button{border:0;background:none;color:var(--mut);font:inherit;font-weight:500;padding:8px 12px;border-radius:8px;cursor:pointer;white-space:nowrap}
+nav button.on{background:var(--gb);color:var(--ac);font-weight:600}
+main{max-width:1100px;margin:auto;padding:18px 16px 60px}
+h2{font-size:20px;margin:0 0 14px;letter-spacing:-.01em}
+h3{font-size:15px;margin:0 0 8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:18px}
+.stat{background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:14px}
+.stat b{display:block;font-size:26px;font-weight:700;letter-spacing:-.02em}
+.stat span{color:var(--mut);font-size:13px}
+.stat.w b{color:var(--wn)}.stat.d b{color:var(--bd)}
+.panel{background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:14px;margin-bottom:14px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.sell{display:grid;grid-template-columns:1.2fr 1fr;gap:14px;align-items:start}
+@media(max-width:760px){.two,.sell{grid-template-columns:1fr}}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:560px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--ln);vertical-align:middle}
+th{font-size:13px;color:var(--mut);font-weight:600}
+td small{display:block;color:var(--mut);font-size:12.5px}
+.r{text-align:right}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--ln);border-radius:8px;padding:8px 10px;width:100%}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+label{display:block;font-size:13px;color:var(--mut);font-weight:500}
+label input,label select{margin-top:4px;color:var(--ink)}
+.tools{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.tools input{flex:1;min-width:180px}.tools select{width:auto}
+.btn{font:inherit;font-weight:600;border-radius:8px;border:1px solid var(--ac);background:var(--ac);color:var(--on);padding:8px 14px;cursor:pointer}
+.btn.o{background:none;color:var(--ac)}
+.btn.s{padding:4px 9px;font-size:13px}
+.btn.x{border-color:var(--bd);color:var(--bd);background:none}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.tag{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--gb);color:var(--ac)}
+.tag.w{background:var(--wb);color:var(--wn)}.tag.d{background:var(--bb);color:var(--bd)}
+.item{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--ln)}
+.item:last-child{border:0}
+.item small{color:var(--mut);display:block;font-size:12.5px}
+.pick{cursor:pointer}.pick:hover{background:var(--bg)}
+.empty{color:var(--mut);padding:14px 0}
+.qty{width:64px;padding:5px 8px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.tot{display:flex;justify-content:space-between;font-size:18px;font-weight:700;padding:10px 0}
+dialog{border:1px solid var(--ln);border-radius:12px;background:var(--sf);color:var(--ink);width:min(520px,94vw);padding:18px}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.acts{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20}
+#toast.on{opacity:1}
+.rc{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
+.rc .item{padding:4px 0}
+@media print{header,#toast,.acts{display:none}}
+</style></head>
+<body>
+<header><div class="bar"><div class="logo"><i></i>Pharmacy Manager</div>
+<nav id="nav"></nav></div></header>
+<main id="app"></main>
+<dialog id="dlg"></dialog>
+<div id="toast" role="status"></div>
+<script>
+const KEY='pharmacy-manager-v1';
+let S={meds:[],sales:[]},tab='dash',cart=[],q='',flt='all';
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const e=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const money=n=>'৳'+(+n).toLocaleString('en-US',{maximumFractionDigits:2});
+const today=()=>new Date(new Date().toDateString());
+const ymd=d=>{d=new Date(d);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const days=d=>Math.round((new Date(String(d).slice(0,10)+'T00:00:00')-today())/864e5);
+const addDays=n=>{const d=today();d.setDate(d.getDate()+n);return ymd(d)};
+const $=s=>document.querySelector(s);
+/* Data is kept in a real file (via the Python side). If that is unavailable, it falls back to localStorage. */
+let useFile=typeof eel!=='undefined',saving=Promise.resolve();
+const wait=ms=>new Promise((_,no)=>setTimeout(()=>no(new Error('timeout')),ms));
+function save(){
+ const data=JSON.stringify(S);
+ if(!useFile){try{localStorage.setItem(KEY,data)}catch(x){}return}
+ saving=saving.then(()=>eel.save_data(data)()).then(ok=>{if(!ok)toast('Could not save data')}).catch(()=>toast('Could not save data'))}
+async function load(){
+ if(useFile){try{const r=await Promise.race([eel.load_data()(),wait(15000)]);if(r){S=JSON.parse(r);return}}catch(x){useFile=false}}
+ try{const r=localStorage.getItem(KEY);if(r){S=JSON.parse(r);save();return}}catch(x){}
+ S.meds=[
+ ['Napa 500 mg','Paracetamol','Tablet','Beximco','B2301',addDays(420),240,60,1.2],
+ ['Seclo 20','Omeprazole','Capsule','Square','S8810',addDays(300),120,40,6],
+ ['Fexo 120','Fexofenadine','Tablet','Square','F1175',addDays(35),18,30,8],
+ ['Maxpro 20','Esomeprazole','Capsule','Renata','M4402',addDays(210),9,25,7],
+ ['Zimax 500','Azithromycin','Tablet','Square','Z0987',addDays(-12),30,20,35],
+ ['Filmet 400','Metronidazole','Tablet','Beximco','F7721',addDays(500),150,50,2.5],
+ ['Saline ORS','Oral rehydration','Sachet','Renata','O3310',addDays(380),200,80,5]
+ ].map(a=>({id:uid(),name:a[0],generic:a[1],form:a[2],supplier:a[3],batch:a[4],exp:a[5],qty:a[6],min:a[7],price:a[8]}));
+ save()}
+function st(m){const d=days(m.exp);
+ if(d<0)return['Expired','d'];if(m.qty<=0)return['Out of stock','d'];
+ if(d<=60)return['Expires in '+d+' d','w'];if(m.qty<=m.min)return['Low stock','w'];return['OK','']}
+const tag=m=>{const[t,c]=st(m);return`<span class="tag ${c}">${t}</span>`};
+function toast(t){const x=$('#toast');x.textContent=t;x.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>x.classList.remove('on'),2200)}
+const TABS=[['dash','Dashboard'],['inv','Inventory'],['sell','New sale'],['hist','Sales history']];
+function go(t){tab=t;render()}
+function render(){
+ $('#nav').innerHTML=TABS.map(t=>`<button class="${t[0]==tab?'on':''}" onclick="go('${t[0]}')">${t[1]}</button>`).join('');
+ ({dash:dash,inv:inv,sell:sell,hist:hist})[tab]()}
+/* Dashboard */
+function dash(){
+ const ts=S.sales.filter(s=>ymd(s.t)==ymd(new Date()));
+ const low=S.meds.filter(m=>m.qty<=m.min&&days(m.exp)>=0);
+ const exp=S.meds.filter(m=>days(m.exp)<=60).sort((a,b)=>a.exp<b.exp?-1:1);
+ const val=S.meds.reduce((a,m)=>a+m.qty*m.price,0);
+ $('#app').innerHTML=`<h2>Dashboard</h2><div class="grid">
+ <div class="stat"><b>${money(ts.reduce((a,s)=>a+s.total,0))}</b><span>Sales today (${ts.length} bills)</span></div>
+ <div class="stat"><b>${S.meds.length}</b><span>Medicines listed</span></div>
+ <div class="stat w"><b>${low.length}</b><span>Need reordering</span></div>
+ <div class="stat d"><b>${exp.length}</b><span>Expired or expiring in 60 days</span></div>
+ <div class="stat"><b>${money(val)}</b><span>Stock value at sale price</span></div></div>
+ <div class="two"><div class="panel"><h3>Reorder soon</h3>${low.length?low.map(m=>`<div class="item"><div>${e(m.name)}<small>${e(m.supplier)} · ${m.qty} left (minimum ${m.min})</small></div><button class="btn o s" onclick="restock('${m.id}')">Restock</button></div>`).join(''):'<div class="empty">Everything is above its minimum level.</div>'}</div>
+ <div class="panel"><h3>Expiry watch</h3>${exp.length?exp.map(m=>`<div class="item"><div>${e(m.name)}<small>Batch ${e(m.batch)} · ${e(m.exp)} · ${m.qty} units</small></div>${tag(m)}</div>`).join(''):'<div class="empty">No batches expire in the next 60 days.</div>'}</div></div>`}
+/* Inventory */
+function inv(){
+ $('#app').innerHTML=`<h2>Inventory</h2><div class="tools"><input id="q" placeholder="Search name, generic or supplier" value="${e(q)}" oninput="q=this.value;invRows()">
+ <select onchange="flt=this.value;invRows()"><option value="all">All items</option><option value="low">Low or out of stock</option><option value="exp">Expired or expiring</option></select>
+ <button class="btn" onclick="medForm()">Add medicine</button></div>
+ <div class="panel tw"><table><thead><tr><th>Medicine</th><th>Batch / expiry</th><th class="r">Stock</th><th class="r">Price</th><th>Status</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>`;
+ document.querySelector('select').value=flt;invRows()}
+function invRows(){
+ const k=q.toLowerCase();
+ const L=S.meds.filter(m=>(m.name+m.generic+m.supplier).toLowerCase().includes(k)&&(flt=='all'||(flt=='low'&&m.qty<=m.min)||(flt=='exp'&&days(m.exp)<=60)));
+ $('#rows').innerHTML=L.length?L.map(m=>`<tr><td>${e(m.name)}<small>${e(m.generic)} · ${e(m.form)} · ${e(m.supplier)}</small></td><td>${e(m.batch)}<small>${e(m.exp)}</small></td><td class="r">${m.qty}<small>min ${m.min}</small></td><td class="r">${money(m.price)}</td><td>${tag(m)}</td>
+ <td class="r" style="white-space:nowrap"><button class="btn o s" onclick="restock('${m.id}')">Restock</button> <button class="btn o s" onclick="medForm('${m.id}')">Edit</button> <button class="btn x s" onclick="del('${m.id}')">Delete</button></td></tr>`).join(''):'<tr><td colspan="6" class="empty">No medicines match. Add one or change the filter.</td></tr>'}
+function medForm(id){
+ const m=S.meds.find(x=>x.id==id)||{name:'',generic:'',form:'Tablet',supplier:'',batch:'',exp:addDays(365),qty:0,min:20,price:0};
+ const f=(k,l,t='text')=>`<label>${l}<input id="f_${k}" type="${t}" value="${e(m[k])}" ${t=='number'?'min="0" step="any"':''}></label>`;
+ $('#dlg').innerHTML=`<h3>${id?'Edit medicine':'Add medicine'}</h3><div class="row">${f('name','Brand name')}${f('generic','Generic name')}</div>
+ <div class="row">${f('form','Form (tablet, syrup…)')}${f('supplier','Supplier')}</div>
+ <div class="row">${f('batch','Batch no.')}${f('exp','Expiry date','date')}</div>
+ <div class="row">${f('qty','Quantity','number')}${f('min','Reorder level','number')}</div>
+ <div class="row">${f('price','Sale price per unit (৳)','number')}<span></span></div>
+ <div class="acts"><button class="btn o" onclick="$('#dlg').close()">Cancel</button><button class="btn" onclick="saveMed('${id||''}')">Save medicine</button></div>`;
+ $('#dlg').showModal()}
+function saveMed(id){
+ const g=k=>$('#f_'+k).value.trim();
+ if(!g('name')||!g('exp')||isNaN(+g('price'))||g('price')===''){toast('Enter a name, expiry date and price.');return}
+ const o={name:g('name'),generic:g('generic'),form:g('form'),supplier:g('supplier'),batch:g('batch'),exp:g('exp'),qty:Math.max(0,+g('qty')||0),min:Math.max(0,+g('min')||0),price:Math.max(0,+g('price'))};
+ if(id)Object.assign(S.meds.find(m=>m.id==id),o);else S.meds.push({id:uid(),...o});
+ save();$('#dlg').close();toast('Medicine saved');render()}
+function restock(id){
+ const m=S.meds.find(x=>x.id==id);
+ $('#dlg').innerHTML=`<h3>Restock ${e(m.name)}</h3><p style="color:var(--mut);margin-top:0">Currently ${m.qty} in stock.</p>
+ <label>Units received<input id="rq" type="number" min="1" value="${Math.max(m.min*2-m.qty,10)}"></label>
+ <div class="acts"><button class="btn o" onclick="$('#dlg').close()">Cancel</button><button class="btn" onclick="doRestock('${id}')">Add stock</button></div>`;
+ $('#dlg').showModal()}
+function doRestock(id){
+ const n=Math.floor(+$('#rq').value);if(!(n>0)){toast('Enter units greater than zero.');return}
+ S.meds.find(x=>x.id==id).qty+=n;save();$('#dlg').close();toast('Stock added');render()}
+function del(id){
+ const m=S.meds.find(x=>x.id==id);
+ $('#dlg').innerHTML=`<h3>Delete ${e(m.name)}?</h3><p>This removes the medicine from inventory. Past sales keep their records.</p>
+ <div class="acts"><button class="btn o" onclick="$('#dlg').close()">Keep</button><button class="btn x" onclick="S.meds=S.meds.filter(x=>x.id!='${id}');save();$('#dlg').close();toast('Medicine deleted');render()">Delete medicine</button></div>`;
+ $('#dlg').showModal()}
+/* Sell */
+function sell(){
+ $('#app').innerHTML=`<h2>New sale</h2><div class="sell"><div class="panel"><input id="sq" placeholder="Search medicine by brand or generic" oninput="sRes()"><div id="res"></div></div>
+ <div class="panel"><h3>Bill</h3><div id="cart"></div>
+ <div class="row" style="margin-top:10px"><label>Customer<input id="cust" placeholder="Walk-in"></label><label>Discount (%)<input id="disc" type="number" min="0" max="100" value="0" oninput="sCart()"></label></div>
+ <div class="tot"><span>Total</span><span id="tt"></span></div><button class="btn" id="done" style="width:100%" onclick="complete()">Complete sale</button></div></div>`;
+ sRes();sCart()}
+function sRes(){
+ const k=($('#sq')||{value:''}).value.toLowerCase();
+ const L=S.meds.filter(m=>(m.name+m.generic).toLowerCase().includes(k)).slice(0,30);
+ $('#res').innerHTML=L.length?L.map(m=>{const ok=m.qty>0&&days(m.exp)>=0;return`<div class="item ${ok?'pick':''}" ${ok?`onclick="add('${m.id}')"`:''}><div>${e(m.name)}<small>${e(m.generic)} · ${m.qty} in stock · exp ${e(m.exp)}</small></div><div>${ok?money(m.price):tag(m)}</div></div>`}).join(''):'<div class="empty">No medicine found.</div>'}
+function add(id){
+ const m=S.meds.find(x=>x.id==id),c=cart.find(x=>x.id==id);
+ if(c){if(c.qty<m.qty)c.qty++;else toast('Only '+m.qty+' in stock.')}else cart.push({id,qty:1});
+ sCart()}
+function setQ(id,v){
+ const m=S.meds.find(x=>x.id==id),c=cart.find(x=>x.id==id);let n=Math.floor(+v);
+ if(!(n>0))n=1;if(n>m.qty){n=m.qty;toast('Only '+m.qty+' in stock.')}c.qty=n;sCart()}
+function sTotal(){
+ const sub=cart.reduce((a,c)=>a+c.qty*S.meds.find(m=>m.id==c.id).price,0);
+ const d=Math.min(100,Math.max(0,+($('#disc')||{value:0}).value||0));
+ return{sub,d,total:Math.round(sub*(100-d))/100}}
+function sCart(){
+ $('#cart').innerHTML=cart.length?cart.map(c=>{const m=S.meds.find(x=>x.id==c.id);return`<div class="item"><div>${e(m.name)}<small>${money(m.price)} each</small></div><div style="display:flex;gap:6px;align-items:center"><input class="qty" type="number" min="1" value="${c.qty}" onchange="setQ('${c.id}',this.value)"><button class="btn x s" aria-label="Remove ${e(m.name)}" onclick="cart=cart.filter(x=>x.id!='${c.id}');sCart()">Remove</button></div></div>`}).join(''):'<div class="empty">Pick medicines from the list to start a bill.</div>';
+ $('#tt').textContent=money(sTotal().total);$('#done').disabled=!cart.length}
+function complete(){
+ const T=sTotal(),items=[];
+ for(const c of cart){const m=S.meds.find(x=>x.id==c.id);if(c.qty>m.qty||days(m.exp)<0){toast('Check stock for '+m.name);return}items.push({name:m.name,qty:c.qty,price:m.price})}
+ cart.forEach(c=>S.meds.find(x=>x.id==c.id).qty-=c.qty);
+ const s={id:'INV-'+String(S.sales.length+1).padStart(4,'0'),t:new Date().toISOString(),cust:$('#cust').value.trim()||'Walk-in',items,sub:T.sub,disc:T.d,total:T.total};
+ S.sales.push(s);save();cart=[];toast('Sale completed');sell();receipt(s.id)}
+function receipt(id){
+ const s=S.sales.find(x=>x.id==id);
+ $('#dlg').innerHTML=`<div class="rc"><h3 style="font-family:inherit">Pharmacy Manager · ${s.id}</h3><div style="color:var(--mut)">${new Date(s.t).toLocaleString()}<br>Customer: ${e(s.cust)}</div><hr style="border:0;border-top:1px dashed var(--ln);margin:10px 0">
+ ${s.items.map(i=>`<div class="item"><span>${e(i.name)} × ${i.qty}</span><span>${money(i.qty*i.price)}</span></div>`).join('')}
+ <hr style="border:0;border-top:1px dashed var(--ln);margin:10px 0"><div class="item"><span>Subtotal</span><span>${money(s.sub)}</span></div>${s.disc?`<div class="item"><span>Discount ${s.disc}%</span><span>−${money(s.sub-s.total)}</span></div>`:''}<div class="item"><b>Total</b><b>${money(s.total)}</b></div></div>
+ <div class="acts"><button class="btn o" onclick="window.print()">Print</button><button class="btn" onclick="$('#dlg').close()">Close</button></div>`;
+ $('#dlg').showModal()}
+/* History */
+function hist(){
+ const L=[...S.sales].reverse(),sum=S.sales.reduce((a,s)=>a+s.total,0);
+ $('#app').innerHTML=`<h2>Sales history</h2><div class="grid"><div class="stat"><b>${S.sales.length}</b><span>Bills issued</span></div><div class="stat"><b>${money(sum)}</b><span>Total sales</span></div></div>
+ <div class="panel tw">${L.length?`<table><thead><tr><th>Bill</th><th>Date</th><th>Customer</th><th>Items</th><th class="r">Total</th><th></th></tr></thead><tbody>${L.map(s=>`<tr><td>${s.id}</td><td>${new Date(s.t).toLocaleString()}</td><td>${e(s.cust)}</td><td>${s.items.reduce((a,i)=>a+i.qty,0)}</td><td class="r">${money(s.total)}</td><td class="r"><button class="btn o s" onclick="receipt('${s.id}')">View</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">No sales yet. Complete a bill in New sale and it will show up here.</div>'}</div>`}
+load().then(render);
+</script></body></html>

@@ -1,0 +1,15 @@
+# Python / build output
+.venv/
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+
+# Survey: keep raw answers (shop names, notes) on your own PC only
+survey/responses.csv
+
+# OS / editor
+Thumbs.db
+.DS_Store
+.vscode/
