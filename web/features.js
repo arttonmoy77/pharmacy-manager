@@ -89,7 +89,7 @@ function newManagerRecoveryCode(){const bytes=new Uint8Array(16);crypto.getRando
 function normalizeRecoveryCode(value){return String(value||'').replace(/[\s-]/g,'').toUpperCase()}
 function showRecoveryCode(code,title='Save manager recovery code',returnTo='login'){
  const onDone=returnTo==='app'?'render()':'showStaffLogin()';
- setDialog(title,`<p style="color:var(--mut)">Store this code somewhere private and separate from the computer. It is shown only once and can reset the CEO PIN. Replacing or using it invalidates the previous code.</p><label>One-time recovery code<input value="${e(code)}" readonly onclick="this.select()" autocomplete="off"></label><div class="acts"><button class="btn" onclick="${onDone}">I saved the code</button></div>`)
+ setDialog(title,`<p style="color:var(--mut)">Store this code somewhere private and separate from the computer. It is shown only once and can reset the CEO PIN. Replacing or using it invalidates the previous code.</p><label>One-time recovery code<input value="${e(code)}" readonly onclick="this.select()" autocomplete="off"></label><div class="acts"><button class="btn x" onclick="exitApp()">Exit app</button><button class="btn" onclick="${onDone}">I saved the code</button></div>`)
 }
 async function generateCEORecoveryCode(){
  if(!requireCEO())return;
@@ -172,6 +172,13 @@ async function saveMyPin(){
  }catch(x){error.textContent='Could not update the PIN in this browser.'}
 }
 function lockApp(){save();currentStaff=null;showStaffLogin();$('#app').innerHTML='<div class="panel"><h2>App locked</h2><p>Sign in to continue.</p></div>'}
+async function exitApp(){
+ if(!confirm('Exit Pharmacy Manager? Make sure you have saved or copied any one-time recovery code.'))return;
+ save();
+ if(useFile&&typeof eel!=='undefined'){
+   try{await saving;await eel.exit_app()()}catch(x){window.close()}
+ }else window.close()
+}
 
 function installFeatures(){
  const baseRender=render, baseMedForm=medForm, baseSaveMed=saveMed, baseRestock=restock, baseDoRestock=doRestock, baseComplete=complete, baseReceipt=receipt, baseDataTools=dataTools, baseRestore=restoreBackup;
