@@ -72,12 +72,24 @@ function showFirstStaffSetup(){
  <label>CEO name<input id="staffName" autocomplete="name" maxlength="40"></label><label style="margin-top:10px">PIN<input id="staffPin" type="password" inputmode="numeric" autocomplete="new-password" minlength="4" maxlength="12" placeholder="4–12 digits" oninput="this.value=normalizePinInput(this.value)"></label>
  <div class="acts"><button class="btn" onclick="createFirstStaff()">Create account</button></div>`)
 }
+let loginKind='';
+const LOGIN_ROLES={ceo:'CEO',manager:'Manager',staff:'Staff'};
 function showStaffLogin(){
  S.staff=Array.isArray(S.staff)?S.staff:[];ensureCEO();
- currentStaff=null;
- setDialog('Sign in',`<p style="color:var(--mut)">Choose your staff account and enter its PIN.</p><label>Staff account<select id="loginUser">${S.staff.map(u=>`<option value="${e(u.id)}">${e(u.name)}</option>`).join('')}</select></label>
+ currentStaff=null;loginKind='';
+ setDialog('Sign in',`<p style="color:var(--mut)">Choose how you want to sign in.</p>
+ <div style="display:grid;gap:10px;margin-top:10px"><button class="btn" onclick="showLoginPanel('ceo')">CEO login</button><button class="btn o" onclick="showLoginPanel('manager')">Manager login</button><button class="btn o" onclick="showLoginPanel('staff')">Staff login</button></div>`)
+}
+function showLoginPanel(kind){
+ loginKind=kind;
+ const role=LOGIN_ROLES[kind],title=role+' login',users=S.staff.filter(u=>u.role===role);
+ if(!users.length){
+   setDialog(title,`<p style="color:var(--mut)">${role==='CEO'?'No CEO account exists yet.':'No '+role.toLowerCase()+' accounts yet. Ask the CEO to add your account in Staff & activity.'}</p><div class="acts"><button class="btn" onclick="showStaffLogin()">Back</button></div>`);return
+ }
+ setDialog(title,`<p style="color:var(--mut)">${role==='CEO'?'Enter the CEO PIN.':'Choose your '+role.toLowerCase()+' account and enter its PIN.'}</p><label>${role} account<select id="loginUser">${users.map(u=>`<option value="${e(u.id)}">${e(u.name)}</option>`).join('')}</select></label>
  <label style="margin-top:10px">PIN<input id="loginPin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="12" oninput="this.value=normalizePinInput(this.value)" onkeydown="if(event.key==='Enter')loginStaff()"></label><div id="loginError" role="status" style="color:var(--bd);min-height:20px;margin-top:6px"></div>
- <div class="acts"><button class="btn o" onclick="showForgotPin()">Forgot PIN?</button><button class="btn" onclick="loginStaff()">Unlock app</button></div>`)
+ <div class="acts"><button class="btn o" onclick="showStaffLogin()">Back</button><button class="btn o" onclick="showForgotPin()">Forgot PIN?</button><button class="btn" onclick="loginStaff()">Unlock app</button></div>`);
+ setTimeout(()=>$('#loginPin')?.focus(),0)
 }
 async function pinDigest(pin,salt){
  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);
@@ -88,7 +100,7 @@ function randomSalt(){const a=new Uint8Array(16);crypto.getRandomValues(a);retur
 function newManagerRecoveryCode(){const bytes=new Uint8Array(16);crypto.getRandomValues(bytes);return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('').toUpperCase()}
 function normalizeRecoveryCode(value){return String(value||'').replace(/[\s-]/g,'').toUpperCase()}
 function showRecoveryCode(code,title='Save manager recovery code',returnTo='login'){
- const onDone=returnTo==='app'?'render()':'showStaffLogin()';
+ const onDone=returnTo==='app'?"$('#dlg').close();render()":'showStaffLogin()';
  setDialog(title,`<p style="color:var(--mut)">Store this code somewhere private and separate from the computer. It is shown only once and can reset the CEO PIN. Replacing or using it invalidates the previous code.</p><label>One-time recovery code<input value="${e(code)}" readonly onclick="this.select()" autocomplete="off"></label><div class="acts"><button class="btn x" onclick="exitApp()">Exit app</button><button class="btn" onclick="${onDone}">I saved the code</button></div>`)
 }
 async function generateCEORecoveryCode(){
@@ -153,6 +165,7 @@ async function createFirstStaff(){
 async function loginStaff(){
  const u=S.staff.find(x=>x.id===$('#loginUser').value),pin=normalizePinInput($('#loginPin').value);
  if(!u||!pin)return;
+ if(loginKind&&LOGIN_ROLES[loginKind]!==u.role){$('#loginError').textContent='Use the correct login option for this account.';return}
  try{if(await pinDigest(pin,u.salt)!==u.pinHash){$('#loginError').textContent='The PIN did not match.';return}
    currentStaff=u;addActivity('Signed in');save();$('#dlg').close();render()
  }catch(x){$('#loginError').textContent='Could not verify the PIN in this browser.'}
@@ -318,6 +331,7 @@ function staffPage(){
  const viewReports=managerCan('reports'),accounts=canManageStaff?S.staff:S.staff.filter(u=>u.id===currentStaff.id);
  const accountRows=accounts.map(u=>{
    const actions=[];
+   if(ceo)actions.push(`<button class="btn o s" style="margin:0 4px 8px 0" onclick="viewStaffProfile('${e(u.id)}')">View profile</button><button class="btn o s" style="margin:0 4px 8px 0" onclick="editStaffAccount('${e(u.id)}')">Edit account</button>`);
    if(canManageStaff&&u.id!==currentStaff.id&&(ceo||u.role==='Staff'))actions.push(`<button class="btn o s" style="margin:0 4px 8px 0" onclick="resetStaffPin('${e(u.id)}')">Reset ${e(u.name)} PIN</button>`);
    if(ceo&&u.id!==currentStaff.id&&u.role!=='CEO')actions.push(`<button class="btn x s" style="margin:0 4px 8px 0" onclick="removeStaffAccount('${e(u.id)}')">Remove account</button>`);
    const limits=ceo&&!isRootAdmin(u)?`<div class="panel" style="margin:0 0 10px"><b>${e(u.name)} access limits</b><div class="grid">${permissionsForRole(u.role).map(p=>`<label class="item" style="cursor:pointer"><span>${e(p.label)}</span><input type="checkbox" style="width:auto;margin:0" ${managerHasPermission(u,p.key)?'checked':''} onchange="setManagerPermission('${e(u.id)}','${p.key}',this.checked)" aria-label="${e(p.label)} for ${e(u.name)}"></label>`).join('')}</div></div>`:'';
@@ -386,4 +400,37 @@ async function saveResetPin(id){
   const u=S.staff.find(x=>x.id===id),pin=normalizePinInput($('#resetPin').value);if(!u||!/^\d{4,12}$/.test(pin)){toast('Enter a 4–12 digit PIN.');return}if(u.role!=='Staff'&&!isRootAdmin()){toast('Only the CEO can change a Manager PIN.');return}
  try{u.salt=randomSalt();u.pinHash=await pinDigest(pin,u.salt);addActivity('Staff PIN reset',u.name);save();$('#dlg').close();staffPage();toast('PIN updated')}
  catch(x){toast('Could not update the PIN in this browser.')}
+}
+function viewStaffProfile(id){
+ if(!requireCEO())return;
+ const u=S.staff.find(x=>x.id===id);if(!u)return;
+ const sales=S.sales.filter(x=>x.staff===u.name),total=sales.reduce((a,x)=>a+x.total,0);
+ const acts=(S.activity||[]).filter(a=>a.staff===u.name);
+ const lastIn=acts.find(a=>a.action==='Signed in');
+ const access=u.role==='CEO'?'Full access to everything':(permissionsForRole(u.role).filter(p=>managerHasPermission(u,p.key)).map(p=>p.label).join(', ')||'No access assigned yet');
+ setDialog(`${e(u.name)} · ${e(u.role)}`,`<div class="grid"><div class="stat"><b>${sales.length}</b><span>Bills made</span></div><div class="stat"><b>${money(total)}</b><span>Sales total</span></div></div>
+ <p style="color:var(--mut)">Access: ${e(access)}</p><p style="color:var(--mut)">Last sign-in: ${lastIn?new Date(lastIn.t).toLocaleString():'No sign-in recorded'}</p>
+ <h3>Recent activity</h3>${acts.length?acts.slice(0,15).map(a=>`<div class="item"><div>${e(a.action)}<small>${new Date(a.t).toLocaleString()}${a.details?' · '+e(a.details):''}</small></div></div>`).join(''):'<div class="empty">No activity yet.</div>'}
+ <div class="acts"><button class="btn o" onclick="editStaffAccount('${e(u.id)}')">Edit account</button><button class="btn" onclick="$('#dlg').close()">Close</button></div>`)
+}
+function editStaffAccount(id){
+ if(!requireCEO())return;
+ const u=S.staff.find(x=>x.id===id);if(!u)return;
+ const roleControl=u.role==='CEO'?'':`<label style="margin-top:10px">Role<select id="editStaffRole"><option ${u.role==='Staff'?'selected':''}>Staff</option><option ${u.role==='Manager'?'selected':''}>Manager</option></select></label>`;
+ setDialog(`Edit ${e(u.name)}`,`<label>Name<input id="editStaffName" maxlength="40" value="${e(u.name)}"></label>${roleControl}<p style="color:var(--mut)">PINs are stored as hashes and cannot be shown. Use Reset PIN to set a new one.</p><div class="acts"><button class="btn o" onclick="$('#dlg').close()">Cancel</button><button class="btn" onclick="saveStaffEdit('${e(u.id)}')">Save changes</button></div>`)
+}
+function saveStaffEdit(id){
+ if(!requireCEO())return;
+ const u=S.staff.find(x=>x.id===id);if(!u)return;
+ const name=$('#editStaffName').value.trim(),role=u.role==='CEO'?'CEO':$('#editStaffRole').value;
+ if(!name){toast('Enter a name.');return}
+ if(u.role!=='CEO'&&!['Staff','Manager'].includes(role)){toast('Choose a valid account role.');return}
+ if(S.staff.some(x=>x.id!==u.id&&x.name.toLowerCase()===name.toLowerCase())){toast('Another account already uses this name.');return}
+ const oldName=u.name,oldRole=u.role;
+ if(name!==oldName){
+   [S.sales,S.activity,S.movements,S.purchases].forEach(list=>(list||[]).forEach(r=>{if(r.staff===oldName)r.staff=name}));
+   u.name=name
+ }
+ if(role!==oldRole){u.role=role;u.permissions=(Array.isArray(u.permissions)?u.permissions:[]).filter(k=>permissionsForRole(role).some(p=>p.key===k))}
+ addActivity('Account edited',`${oldName} · ${oldRole} → ${u.name} · ${u.role}`);save();$('#dlg').close();staffPage();toast('Account updated')
 }
