@@ -1,0 +1,13 @@
+pharmacy_id,area,method,reasons,staff_count,would_adopt,notes
+P01,Sanirakhra,Manual,Lack of knowledge;Lack of staff,2,Yes,EXAMPLE ROW - not real data
+P02,Sanirakhra,Manual,Lack of knowledge,1,Maybe,EXAMPLE ROW - not real data
+P03,Sanirakhra,App,,3,Yes,EXAMPLE ROW - not real data
+P04,Sanirakhra,Manual,Lack of staff;No computer,2,Yes,EXAMPLE ROW - not real data
+P05,Sanirakhra,Manual,Lack of knowledge;Cost,1,Yes,EXAMPLE ROW - not real data
+P06,Sanirakhra,Both,,4,Yes,EXAMPLE ROW - not real data
+P07,Sanirakhra,Manual,Lack of knowledge;Lack of staff;Power or internet problems,2,Maybe,EXAMPLE ROW - not real data
+P08,Sanirakhra,Manual,Small shop - no need,1,No,EXAMPLE ROW - not real data
+P09,Sanirakhra,Manual,Lack of staff,2,Yes,EXAMPLE ROW - not real data
+P10,Sanirakhra,Manual,Lack of knowledge;Data safety worries,1,Maybe,EXAMPLE ROW - not real data
+P11,Sanirakhra,Manual,Lack of knowledge;Lack of staff,3,Yes,EXAMPLE ROW - not real data
+P12,Sanirakhra,App,,2,Yes,EXAMPLE ROW - not real data
