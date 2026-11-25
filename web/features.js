@@ -1,10 +1,51 @@
 /* Pharmacy workflow additions. This file extends the existing screens and JSON store. */
 let currentStaff=null, histQuery='', histFrom='', histTo='';
+const MANAGER_PERMISSIONS=[
+ {key:'inventory',label:'Manage inventory'},
+ {key:'sales',label:'Use sales and sales history'},
+ {key:'purchases',label:'Record purchases'},
+ {key:'reports',label:'View and export reports'},
+ {key:'staff',label:'Manage staff accounts'},
+ {key:'restore',label:'Restore backups'}
+];
+const DEFAULT_MANAGER_PERMISSIONS=MANAGER_PERMISSIONS.map(x=>x.key);
+function permissionsForRole(role){return role==='Manager'?MANAGER_PERMISSIONS.filter(p=>p.key!=='restore'):MANAGER_PERMISSIONS.filter(p=>!['staff','restore'].includes(p.key))}
+function managerHasPermission(user,permission){
+ return user?.role==='CEO'||!Array.isArray(user?.permissions)||user.permissions.includes(permission)
+}
+function isRootAdmin(user=currentStaff){return user?.role==='CEO'}
+function managerCan(permission){return !!currentStaff&&managerHasPermission(currentStaff,permission)}
+function managerFeatureAllowed(permission){
+ if(managerCan(permission))return true;
+ toast('Your manager account does not have permission for this feature.');return false
+}
+function visibleTabs(){
+ const capability={dash:'reports',inv:'inventory',sell:'sales',hist:'sales',buy:'purchases',data:'reports'};
+ const configured=Array.isArray(S.layoutTabs)?S.layoutTabs:null;
+ return TABS.filter(([key])=>(key==='staff'||!configured||configured.includes(key))&&(key==='data'?managerCan('reports'):!capability[key]||managerCan(capability[key])))
+}
+function requireManager(permission='staff'){
+ if(!currentStaff||!['Manager','CEO'].includes(currentStaff.role)){toast('Manager access is required.');return false}
+ if(!managerHasPermission(currentStaff,permission)){toast('Your manager account does not have permission for this action.');return false}
+ return true
+}
+function requireCEO(){if(isRootAdmin())return true;toast('CEO access is required.');return false}
+function ensureCEO(){
+ let changed=false;
+ const ceo=S.staff.find(u=>u.role==='CEO')||S.staff.find(u=>u.role==='Ultimate Manager')||S.staff.find(u=>u.role==='Manager')||S.staff[0];
+ if(ceo&&ceo.role!=='CEO'){ceo.role='CEO';changed=true}
+ for(const user of S.staff){
+   if(user!==ceo&&(user.role==='CEO'||user.role==='Ultimate Manager')){user.role='Manager';changed=true}
+   if(!Array.isArray(user.permissions)){user.permissions=user.role==='Manager'?[...DEFAULT_MANAGER_PERMISSIONS]:[];changed=true}
+ }
+ if(changed)save()
+}
 
 function initFeatures(){
  S.staff=Array.isArray(S.staff)?S.staff:[];
  S.movements=Array.isArray(S.movements)?S.movements:[];
  S.purchases=Array.isArray(S.purchases)?S.purchases:[];
+ ensureCEO();
  S.meds.forEach(m=>{if(m.unitCost==null)m.unitCost=null;if(m.barcode==null)m.barcode=''});
  TABS.push(['buy','Purchases'],['staff','Staff & activity']);
  if(S.staff.length)showStaffLogin();else showFirstStaffSetup();
@@ -21,21 +62,22 @@ function recordMovement(m,kind,quantity,before,after,reason='',link=''){
  S.movements=S.movements.slice(0,3000);
  addActivity('Stock '+kind,`${m.name}: ${quantity>0?'+':''}${quantity} units${reason?` (${reason})`:''}`);
 }
-function setDialog(title,body){$('#dlg').innerHTML=`<h3>${title}</h3>${body}`;$('#dlg').showModal()}
+function setDialog(title,body){const dialog=$('#dlg');if(dialog.open)dialog.close();dialog.innerHTML=`<h3>${title}</h3>${body}`;dialog.showModal()}
 function normalizePinInput(value){
  const zeroes=[0x0660,0x06f0,0x0966,0x09e6,0x0a66,0x0ae6,0x0b66,0x0be6,0x0c66,0x0ce6,0x0d66,0xff10];
  return Array.from(String(value||'').normalize('NFKC').replace(/[\s-]/g,''),ch=>{const cp=ch.codePointAt(0);if(cp>=48&&cp<=57)return ch;const z=zeroes.find(n=>cp>=n&&cp<n+10);return z===undefined?ch:String(cp-z)}).join('').slice(0,12)
 }
 function showFirstStaffSetup(){
- setDialog('Set up manager account',`<p style="color:var(--mut)">Create the first local account to identify staff actions. Use 4–12 digits for the PIN. English and Bangla digits are accepted.</p>
- <label>Manager name<input id="staffName" autocomplete="name" maxlength="40"></label><label style="margin-top:10px">PIN<input id="staffPin" type="password" inputmode="numeric" autocomplete="new-password" minlength="4" maxlength="12" placeholder="4–12 digits" oninput="this.value=normalizePinInput(this.value)"></label>
+ setDialog('Set up CEO account',`<p style="color:var(--mut)">Create the first local CEO account to identify staff actions. Use 4–12 digits for the PIN. English and Bangla digits are accepted.</p>
+ <label>CEO name<input id="staffName" autocomplete="name" maxlength="40"></label><label style="margin-top:10px">PIN<input id="staffPin" type="password" inputmode="numeric" autocomplete="new-password" minlength="4" maxlength="12" placeholder="4–12 digits" oninput="this.value=normalizePinInput(this.value)"></label>
  <div class="acts"><button class="btn" onclick="createFirstStaff()">Create account</button></div>`)
 }
 function showStaffLogin(){
+ S.staff=Array.isArray(S.staff)?S.staff:[];ensureCEO();
  currentStaff=null;
  setDialog('Sign in',`<p style="color:var(--mut)">Choose your staff account and enter its PIN.</p><label>Staff account<select id="loginUser">${S.staff.map(u=>`<option value="${e(u.id)}">${e(u.name)}</option>`).join('')}</select></label>
  <label style="margin-top:10px">PIN<input id="loginPin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="12" oninput="this.value=normalizePinInput(this.value)" onkeydown="if(event.key==='Enter')loginStaff()"></label><div id="loginError" role="status" style="color:var(--bd);min-height:20px;margin-top:6px"></div>
- <div class="acts"><button class="btn" onclick="loginStaff()">Unlock app</button></div>`)
+ <div class="acts"><button class="btn o" onclick="showForgotPin()">Forgot PIN?</button><button class="btn" onclick="loginStaff()">Unlock app</button></div>`)
 }
 async function pinDigest(pin,salt){
  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);
@@ -43,11 +85,69 @@ async function pinDigest(pin,salt){
  return btoa(String.fromCharCode(...new Uint8Array(bits)))
 }
 function randomSalt(){const a=new Uint8Array(16);crypto.getRandomValues(a);return btoa(String.fromCharCode(...a))}
+function newManagerRecoveryCode(){const bytes=new Uint8Array(16);crypto.getRandomValues(bytes);return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('').toUpperCase()}
+function normalizeRecoveryCode(value){return String(value||'').replace(/[\s-]/g,'').toUpperCase()}
+function showRecoveryCode(code,title='Save manager recovery code',returnTo='login'){
+ const onDone=returnTo==='app'?'render()':'showStaffLogin()';
+ setDialog(title,`<p style="color:var(--mut)">Store this code somewhere private and separate from the computer. It is shown only once and can reset the CEO PIN. Replacing or using it invalidates the previous code.</p><label>One-time recovery code<input value="${e(code)}" readonly onclick="this.select()" autocomplete="off"></label><div class="acts"><button class="btn" onclick="${onDone}">I saved the code</button></div>`)
+}
+async function generateCEORecoveryCode(){
+ if(!requireCEO())return;
+ try{
+   const code=newManagerRecoveryCode(),salt=randomSalt(),hash=await pinDigest(code,salt);
+   S.managerRecovery={salt,hash};addActivity('CEO recovery code generated');save();showRecoveryCode(code,'Save CEO recovery code','app')
+ }catch(x){toast('Could not create a recovery code in this browser.')}
+}
+function showForgotPin(){
+ const approvers=S.staff.filter(u=>['Manager','CEO'].includes(u.role)&&managerHasPermission(u,'staff'));
+ if(!approvers.length){
+   if(S.managerRecovery?.salt&&S.managerRecovery?.hash){showManagerRecoveryReset();return}
+   setDialog('Forgot PIN',`<p style="color:var(--mut)">A CEO must approve administrator PIN resets. If you are the CEO, create a recovery code in Staff & activity before forgetting the PIN. Contact the app owner to restore access.</p><div class="acts"><button class="btn" onclick="showStaffLogin()">Back to sign in</button></div>`);return
+ }
+ if(!S.managerRecovery?.hash&&approvers.length===1&&isRootAdmin(approvers[0])){
+   setDialog('Forgot PIN',`<p style="color:var(--mut)">No CEO recovery code has been set. The CEO must create one in Staff & activity before forgetting the PIN. Contact the app owner for one-time recovery, then create a recovery code.</p><div class="acts"><button class="btn" onclick="showStaffLogin()">Back to sign in</button></div>`);return
+ }
+  setDialog('Forgot PIN',`<p style="color:var(--mut)">A CEO approves Manager PIN resets. A Manager with staff-management access may reset Staff PINs.</p><label>Approving account<select id="forgotManager">${approvers.map(u=>`<option value="${e(u.id)}">${e(u.name)} · ${e(u.role)}</option>`).join('')}</select></label><label style="margin-top:10px">Account to reset<select id="forgotTarget">${S.staff.map(u=>`<option value="${e(u.id)}">${e(u.name)} · ${e(u.role)}</option>`).join('')}</select></label><label style="margin-top:10px">Approver PIN<input id="forgotManagerPin" type="password" inputmode="numeric" maxlength="12" oninput="this.value=normalizePinInput(this.value)"></label><label style="margin-top:10px">New PIN (4–12 digits)<input id="forgotNewPin" type="password" inputmode="numeric" maxlength="12" oninput="this.value=normalizePinInput(this.value)"></label><label style="margin-top:10px">Confirm new PIN<input id="forgotConfirmPin" type="password" inputmode="numeric" maxlength="12" oninput="this.value=normalizePinInput(this.value)"></label><div id="forgotError" role="status" style="color:var(--bd);min-height:20px;margin-top:6px"></div><div class="acts"><button class="btn o" onclick="showStaffLogin()">Cancel</button>${S.managerRecovery?.hash?'<button class="btn o" onclick="showManagerRecoveryReset()">Use recovery code</button>':''}<button class="btn" onclick="completeForgotPin()">Approve and reset</button></div>`)
+}
+function showManagerRecoveryReset(){
+ const managers=S.staff.filter(u=>isRootAdmin(u));
+ if(!S.managerRecovery?.salt||!S.managerRecovery?.hash||!managers.length){showStaffLogin();return}
+  setDialog('Recover CEO PIN',`<p style="color:var(--mut)">Enter the one-time recovery code to reset the CEO PIN. A new recovery code will be generated after a successful reset.</p><label>CEO account<select id="recoveryTarget">${managers.map(u=>`<option value="${e(u.id)}">${e(u.name)}</option>`).join('')}</select></label><label style="margin-top:10px">Recovery code<input id="managerRecoveryCode" autocomplete="off" autocapitalize="characters"></label><label style="margin-top:10px">New PIN (4–12 digits)<input id="recoveryNewPin" type="password" inputmode="numeric" maxlength="12" oninput="this.value=normalizePinInput(this.value)"></label><label style="margin-top:10px">Confirm new PIN<input id="recoveryConfirmPin" type="password" inputmode="numeric" maxlength="12" oninput="this.value=normalizePinInput(this.value)"></label><div id="recoveryError" role="status" style="color:var(--bd);min-height:20px;margin-top:6px"></div><div class="acts"><button class="btn o" onclick="showStaffLogin()">Cancel</button><button class="btn" onclick="resetManagerPinWithCode()">Reset CEO PIN</button></div>`)
+}
+async function resetManagerPinWithCode(){
+ const target=S.staff.find(u=>u.id===$('#recoveryTarget').value),code=normalizeRecoveryCode($('#managerRecoveryCode').value),pin=normalizePinInput($('#recoveryNewPin').value),confirmPin=normalizePinInput($('#recoveryConfirmPin').value),error=$('#recoveryError');
+  if(!target||target.role!=='CEO'){error.textContent='Choose the CEO account.';return}
+ if(!/^\d{4,12}$/.test(pin)){error.textContent='Enter a new PIN using 4–12 digits.';return}
+ if(pin!==confirmPin){error.textContent='The new PINs do not match.';return}
+ try{
+   const recovery=S.managerRecovery;
+   if(!recovery?.salt||!recovery?.hash||await pinDigest(code,recovery.salt)!==recovery.hash){error.textContent='The recovery code did not match.';return}
+   const newCode=newManagerRecoveryCode(),salt=randomSalt(),hash=await pinDigest(newCode,salt);
+   target.salt=randomSalt();target.pinHash=await pinDigest(pin,target.salt);S.managerRecovery={salt,hash};
+    S.activity=Array.isArray(S.activity)?S.activity:[];S.activity.unshift({id:uid(),t:safeDate(),staff:'Recovery code',action:'Administrator PIN recovered',details:`${target.name}'s PIN reset; recovery code rotated`});S.activity=S.activity.slice(0,1000);
+   save();showRecoveryCode(newCode,'PIN reset — save your new recovery code')
+ }catch(x){error.textContent='Could not reset the PIN in this browser.'}
+}
+async function completeForgotPin(){
+ const approver=S.staff.find(u=>u.id===$('#forgotManager').value),target=S.staff.find(u=>u.id===$('#forgotTarget').value),managerPin=normalizePinInput($('#forgotManagerPin').value),pin=normalizePinInput($('#forgotNewPin').value),confirmPin=normalizePinInput($('#forgotConfirmPin').value);
+ const error=$('#forgotError');
+  if(!approver||!['Manager','CEO'].includes(approver.role)||!managerHasPermission(approver,'staff')){error.textContent='Choose an authorized Manager or CEO.';return}
+  if(!target){error.textContent='Choose an account to reset.';return}
+  if(target.role!=='Staff'&&approver.role!=='CEO'){error.textContent='Only the CEO can reset a Manager PIN.';return}
+ if(!/^\d{4,12}$/.test(pin)){error.textContent='Enter a PIN using 4–12 digits.';return}
+ if(pin!==confirmPin){error.textContent='The new PINs do not match.';return}
+ try{
+   if(await pinDigest(managerPin,approver.salt)!==approver.pinHash){error.textContent='The approving manager PIN did not match.';return}
+   target.salt=randomSalt();target.pinHash=await pinDigest(pin,target.salt);
+   S.activity=Array.isArray(S.activity)?S.activity:[];S.activity.unshift({id:uid(),t:safeDate(),staff:approver.name,action:'PIN reset approved',details:`${target.name}'s PIN reset`});S.activity=S.activity.slice(0,1000);
+   save();showStaffLogin();toast('PIN reset. Sign in with the new PIN.')
+ }catch(x){error.textContent='Could not reset the PIN in this browser.'}
+}
 async function createFirstStaff(){
  const name=$('#staffName').value.trim(),pin=normalizePinInput($('#staffPin').value);
  if(!name){toast('Enter the manager name.');return}
  if(!/^\d{4,12}$/.test(pin)){toast('Enter a PIN using 4–12 digits. English and Bangla digits are accepted.');return}
- try{const salt=randomSalt(),u={id:uid(),name,role:'Manager',salt,pinHash:await pinDigest(pin,salt)};S.staff.push(u);currentStaff=u;addActivity('Account created',name);save();$('#dlg').close();toast('Manager account created');render()}
+  try{const salt=randomSalt(),recoveryCode=newManagerRecoveryCode(),recoverySalt=randomSalt(),recoveryHash=await pinDigest(recoveryCode,recoverySalt),u={id:uid(),name,role:'CEO',permissions:[...DEFAULT_MANAGER_PERMISSIONS],salt,pinHash:await pinDigest(pin,salt)};S.staff.push(u);S.managerRecovery={salt:recoverySalt,hash:recoveryHash};currentStaff=u;addActivity('CEO account created',name);save();$('#dlg').close();toast('CEO account created');render();showRecoveryCode(recoveryCode,'Save CEO recovery code','app')}
  catch(x){toast('PIN security is unavailable in this browser. Open the desktop app and try again.')}
 }
 async function loginStaff(){
@@ -57,25 +157,42 @@ async function loginStaff(){
    currentStaff=u;addActivity('Signed in');save();$('#dlg').close();render()
  }catch(x){$('#loginError').textContent='Could not verify the PIN in this browser.'}
 }
+function changeMyPin(){
+ if(!currentStaff)return;
+ setDialog('Change my PIN',`<p style="color:var(--mut)">Enter your current PIN, then choose a new PIN using 4–12 digits.</p><label>Current PIN<input id="currentPin" type="password" inputmode="numeric" maxlength="12" oninput="this.value=normalizePinInput(this.value)"></label><label style="margin-top:10px">New PIN<input id="newMyPin" type="password" inputmode="numeric" maxlength="12" oninput="this.value=normalizePinInput(this.value)"></label><label style="margin-top:10px">Confirm new PIN<input id="confirmMyPin" type="password" inputmode="numeric" maxlength="12" oninput="this.value=normalizePinInput(this.value)"></label><div id="changePinError" role="status" style="color:var(--bd);min-height:20px;margin-top:6px"></div><div class="acts"><button class="btn o" onclick="$('#dlg').close()">Cancel</button><button class="btn" onclick="saveMyPin()">Change PIN</button></div>`)
+}
+async function saveMyPin(){
+ const user=currentStaff,currentPin=normalizePinInput($('#currentPin').value),pin=normalizePinInput($('#newMyPin').value),confirmPin=normalizePinInput($('#confirmMyPin').value),error=$('#changePinError');
+ if(!user)return;
+ if(!/^\d{4,12}$/.test(pin)){error.textContent='Enter a new PIN using 4–12 digits.';return}
+ if(pin!==confirmPin){error.textContent='The new PINs do not match.';return}
+ try{
+   if(await pinDigest(currentPin,user.salt)!==user.pinHash){error.textContent='The current PIN did not match.';return}
+   user.salt=randomSalt();user.pinHash=await pinDigest(pin,user.salt);addActivity('PIN changed');save();$('#dlg').close();toast('PIN changed')
+ }catch(x){error.textContent='Could not update the PIN in this browser.'}
+}
 function lockApp(){save();currentStaff=null;showStaffLogin();$('#app').innerHTML='<div class="panel"><h2>App locked</h2><p>Sign in to continue.</p></div>'}
-function requireManager(){if(currentStaff&&currentStaff.role==='Manager')return true;toast('Manager access is required.');return false}
 
 function installFeatures(){
  const baseRender=render, baseMedForm=medForm, baseSaveMed=saveMed, baseRestock=restock, baseDoRestock=doRestock, baseComplete=complete, baseReceipt=receipt, baseDataTools=dataTools, baseRestore=restoreBackup;
- const baseInvRows=invRows;
+ const baseInvRows=invRows,baseExportInventory=exportInventory,baseExportSales=exportSales,baseExportBackup=exportBackup,baseExportProfit=exportProfit,baseExportMovements=exportMovements,baseReceivePurchase=receivePurchase;
  render=function(){
    if(!currentStaff){$('#app').innerHTML='<div class="panel"><h2>Sign in required</h2><p>Unlock the app to continue.</p><button class="btn" onclick="showStaffLogin()">Sign in</button></div>';return}
+   if(!visibleTabs().some(t=>t[0]===tab))tab=visibleTabs()[0]?.[0]||'staff';
    if(tab==='buy'){navBar();purchasePage();return}
    if(tab==='staff'){navBar();staffPage();return}
    baseRender();
-   if(tab==='data')appendProfitPanel();
+   navBar();
+   if(tab==='data'&&managerCan('reports'))appendProfitPanel();
  };
- function navBar(){$('#nav').innerHTML=TABS.map(t=>`<button class="${t[0]==tab?'on':''}" onclick="go('${t[0]}')">${t[1]}</button>`).join('')}
+ function navBar(){$('#nav').innerHTML=visibleTabs().map(t=>`<button class="${t[0]==tab?'on':''}" onclick="go('${t[0]}')">${t[1]}</button>`).join('')}
  medForm=function(id){
+   if(!managerFeatureAllowed('inventory'))return;
    baseMedForm(id);const m=S.meds.find(x=>x.id===id)||{};const acts=$('#dlg').querySelector('.acts');
    const row=document.createElement('div');row.className='row';row.innerHTML=`<label>Barcode<input id="f_barcode" inputmode="numeric" value="${e(m.barcode||'')}"></label><label>Purchase cost per unit (৳)<input id="f_unitCost" type="number" min="0" step="any" value="${m.unitCost==null?'':e(m.unitCost)}"></label>`;acts.parentElement.insertBefore(row,acts)
  };
  saveMed=function(id){
+   if(!managerFeatureAllowed('inventory'))return;
    const before=S.meds.find(m=>m.id===id),oldQty=before?+before.qty:0;
    const barcode=$('#f_barcode')?.value.trim()||'',costText=$('#f_unitCost')?.value.trim()||'';
    if(costText!==''&&(!Number.isFinite(+costText)||+costText<0)){toast('Enter a valid purchase cost.');return}
@@ -90,20 +207,24 @@ function installFeatures(){
  };
  const baseDelete=del;
  del=function(id){
+   if(!managerFeatureAllowed('inventory'))return;
    const m=S.meds.find(x=>x.id===id);if(!m)return;
    setDialog(`Delete ${e(m.name)}?`,`<p>This removes the medicine from inventory. Past sales keep their records.</p><div class="acts"><button class="btn o" onclick="$('#dlg').close()">Keep</button><button class="btn x" id="confirmMedDelete">Delete medicine</button></div>`);
    $('#confirmMedDelete').onclick=()=>{recordMovement(m,'Removed',-m.qty,m.qty,0,'Medicine deleted');S.meds=S.meds.filter(x=>x.id!==id);addActivity('Medicine deleted',m.name);save();$('#dlg').close();toast('Medicine deleted');render()}
  };
  restock=function(id){
+   if(!managerFeatureAllowed('inventory'))return;
    baseRestock(id);const acts=$('#dlg').querySelector('.acts');
    const cost=document.createElement('label');cost.style.marginTop='10px';cost.innerHTML='Purchase cost per unit (৳), optional<input id="rqCost" type="number" min="0" step="any" placeholder="Leave blank to keep current cost">';acts.parentElement.insertBefore(cost,acts)
  };
  doRestock=function(id){
+   if(!managerFeatureAllowed('inventory'))return;
    const m=S.meds.find(x=>x.id===id),before=+m.qty,n=Math.floor(+$('#rq').value),costVal=$('#rqCost')?.value.trim()||'';
    if(costVal!==''&&(!Number.isFinite(+costVal)||+costVal<0)){toast('Enter a valid purchase cost.');return}
    baseDoRestock(id);if(+m.qty>before){if(costVal!=='')m.unitCost=m.unitCost==null?+costVal:(before*m.unitCost+n*(+costVal))/(before+n);recordMovement(m,'Restock',+m.qty-before,before,+m.qty,'Manual restock');addActivity('Restock received',m.name);save()}
  };
  complete=function(){
+   if(!managerFeatureAllowed('sales'))return;
    const oldLen=S.sales.length,lines=cart.map(c=>{const m=S.meds.find(x=>x.id===c.id);return{id:c.id,qty:c.qty,cost:m&&m.unitCost!=null?+m.unitCost:null,before:m?+m.qty:0,name:m?m.name:''}});
    baseComplete();if(S.sales.length===oldLen)return;
    const sale=S.sales[S.sales.length-1];sale.staff=actor();sale.items.forEach((line,i)=>{line.cost=lines[i]?.cost??null});
@@ -112,8 +233,21 @@ function installFeatures(){
    addActivity('Sale completed',`${sale.id} · ${money(sale.total)}`);save()
  };
  receipt=function(id){baseReceipt(id);const s=S.sales.find(x=>x.id===id);if(s?.staff){const meta=$('#dlg').querySelector('.rc div');meta.innerHTML+=`<br>Staff: ${e(s.staff)}`}};
- dataTools=function(){baseDataTools();$('#app').insertAdjacentHTML('beforeend',`<div class="panel" id="profitPanel"></div>`);appendProfitPanel()};
- restoreBackup=function(input){if(requireManager())baseRestore(input)};
+ dataTools=function(){
+    if(!managerCan('reports')&&!isRootAdmin()){toast('Your account does not have permission for this feature.');return}
+   baseDataTools();
+    const sections=$('#app').querySelectorAll('section.panel');
+    if(!managerCan('reports'))sections[0]?.remove();
+    if(!isRootAdmin())sections[1]?.remove();
+   $('#app').insertAdjacentHTML('beforeend',`<div class="panel" id="profitPanel"></div>`)
+ };
+  restoreBackup=function(input){if(requireCEO())baseRestore(input)};
+ exportInventory=function(){if(managerFeatureAllowed('reports'))baseExportInventory()};
+ exportSales=function(){if(managerFeatureAllowed('reports'))baseExportSales()};
+ exportBackup=function(){if(requireCEO())baseExportBackup()};
+ exportProfit=function(){if(managerFeatureAllowed('reports'))baseExportProfit()};
+ exportMovements=function(){if(managerFeatureAllowed('reports'))baseExportMovements()};
+ receivePurchase=function(){if(managerFeatureAllowed('purchases'))baseReceivePurchase()};
  hist=filteredHist;
  // This extension is combined with the original inventory and checkout search.
  window.scanBarcode=scanBarcode;
@@ -173,29 +307,76 @@ function filteredHist(){
  $('#histResults').innerHTML=rows;
 }
 function staffPage(){
- const admin=currentStaff?.role==='Manager';
- $('#app').innerHTML=`<h2>Staff & activity</h2><div class="two"><div class="panel"><h3>Signed in as ${e(currentStaff?.name||'')}</h3><p style="color:var(--mut)">Role: ${e(currentStaff?.role||'Staff')}. Lock the app when stepping away.</p><button class="btn o" onclick="lockApp()">Lock app</button>
- <h3 style="margin-top:20px">Staff accounts</h3>${S.staff.map(u=>`<div class="item"><div>${e(u.name)}<small>${e(u.role)}</small></div>${u.id===currentStaff.id?'<span class="tag">Current</span>':''}</div>`).join('')}
- ${admin?`<button class="btn" style="margin-top:12px" onclick="addStaffForm()">Add staff account</button>${S.staff.filter(u=>u.id!==currentStaff.id).map(u=>`<button class="btn o s" style="margin:8px 4px 0 0" onclick="resetStaffPin('${e(u.id)}')">Reset ${e(u.name)} PIN</button>`).join('')}`:''}</div>
- <div class="panel"><h3>Recent activity</h3>${S.activity?.length?S.activity.slice(0,60).map(a=>`<div class="item"><div>${e(a.action)}<small>${new Date(a.t).toLocaleString()} · ${e(a.staff)}${a.details?' · '+e(a.details):''}</small></div></div>`).join(''):'<div class="empty">Activity will appear as staff use the app.</div>'}</div></div>
- <div class="panel"><h3>Stock movement history</h3><button class="btn o s" onclick="exportMovements()">Export movement CSV</button>${S.movements.length?`<div class="tw"><table><thead><tr><th>Date</th><th>Staff</th><th>Medicine / batch</th><th>Type</th><th class="r">Change</th><th class="r">Balance</th><th>Reason / reference</th></tr></thead><tbody>${S.movements.slice(0,150).map(m=>`<tr><td>${new Date(m.t).toLocaleString()}</td><td>${e(m.staff)}</td><td>${e(m.medicine)}<small>${e(m.batch)}</small></td><td>${e(m.kind)}</td><td class="r">${m.quantity>0?'+':''}${m.quantity}</td><td class="r">${m.after}</td><td>${e(m.reason||'')}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Stock changes will appear here.</div>'}</div>`
-}
-function addStaffForm(){
- if(!requireManager())return;
- setDialog('Add staff account',`<label>Name<input id="newStaffName" maxlength="40"></label><label style="margin-top:10px">Role<select id="newStaffRole"><option>Staff</option><option>Manager</option></select></label><label style="margin-top:10px">PIN (4–12 digits)<input id="newStaffPin" type="password" inputmode="numeric" maxlength="12" oninput="this.value=normalizePinInput(this.value)"></label><div class="acts"><button class="btn o" onclick="$('#dlg').close()">Cancel</button><button class="btn" onclick="saveNewStaff()">Save account</button></div>`)
+ const ceo=isRootAdmin(),admin=ceo||currentStaff?.role==='Manager',canManageStaff=ceo||(currentStaff?.role==='Manager'&&managerHasPermission(currentStaff,'staff'));
+ const viewReports=managerCan('reports'),accounts=canManageStaff?S.staff:S.staff.filter(u=>u.id===currentStaff.id);
+ const accountRows=accounts.map(u=>{
+   const actions=[];
+   if(canManageStaff&&u.id!==currentStaff.id&&(ceo||u.role==='Staff'))actions.push(`<button class="btn o s" style="margin:0 4px 8px 0" onclick="resetStaffPin('${e(u.id)}')">Reset ${e(u.name)} PIN</button>`);
+   if(ceo&&u.id!==currentStaff.id&&u.role!=='CEO')actions.push(`<button class="btn x s" style="margin:0 4px 8px 0" onclick="removeStaffAccount('${e(u.id)}')">Remove account</button>`);
+   const limits=ceo&&!isRootAdmin(u)?`<div class="panel" style="margin:0 0 10px"><b>${e(u.name)} access limits</b><div class="grid">${permissionsForRole(u.role).map(p=>`<label class="item" style="cursor:pointer"><span>${e(p.label)}</span><input type="checkbox" style="width:auto;margin:0" ${managerHasPermission(u,p.key)?'checked':''} onchange="setManagerPermission('${e(u.id)}','${p.key}',this.checked)" aria-label="${e(p.label)} for ${e(u.name)}"></label>`).join('')}</div></div>`:'';
+   return `<div class="item"><div>${e(u.name)}<small>${e(u.role)}</small></div>${u.id===currentStaff.id?'<span class="tag">Current</span>':''}</div>${actions.join('')}${limits}`
+ }).join('');
+ const activityPanel=viewReports?`<div class="panel"><h3>Recent activity</h3>${S.activity?.length?S.activity.slice(0,60).map(a=>`<div class="item"><div>${e(a.action)}<small>${new Date(a.t).toLocaleString()} · ${e(a.staff)}${a.details?' · '+e(a.details):''}</small></div></div>`).join(''):'<div class="empty">Activity will appear here.</div>'}</div>`:`<div class="panel"><h3>Account details</h3><p style="color:var(--mut)">Your access is set by the CEO.</p></div>`;
+ const movementPanel=viewReports?`<div class="panel"><h3>Stock movement history</h3><button class="btn o s" onclick="exportMovements()">Export movement CSV</button>${S.movements.length?`<div class="tw"><table><thead><tr><th>Date</th><th>Staff</th><th>Medicine / batch</th><th>Type</th><th class="r">Change</th><th class="r">Balance</th><th>Reason / reference</th></tr></thead><tbody>${S.movements.slice(0,150).map(m=>`<tr><td>${new Date(m.t).toLocaleString()}</td><td>${e(m.staff)}</td><td>${e(m.medicine)}<small>${e(m.batch)}</small></td><td>${e(m.kind)}</td><td class="r">${m.quantity>0?'+':''}${m.quantity}</td><td class="r">${m.after}</td><td>${e(m.reason||'')}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Stock changes will appear here.</div>'}</div>`:'';
+ const management=ceo?`<button class="btn" style="margin-top:12px" onclick="addStaffForm()">Add account</button>`:'';
+ const recovery=ceo?`<button class="btn o" style="margin-top:8px" onclick="generateCEORecoveryCode()">${S.managerRecovery?.hash?'Replace':'Create'} CEO recovery code</button><p style="color:var(--mut);margin-bottom:0">Only the CEO can assign account access, change the shared app layout, and add or remove accounts. Store the recovery code somewhere private; it is shown once and replaces the previous code.</p>`:admin&&!canManageStaff?'<p style="color:var(--mut)">This manager account cannot manage staff PINs.</p>':'';
+ const layout=ceo?'<button class="btn o" style="margin-top:8px" onclick="showLayoutOptions()">Customize app layout</button>':'';
+  $('#app').innerHTML=`<h2>Staff & activity</h2><div class="two"><div class="panel"><h3>Signed in as ${e(currentStaff?.name||'')}</h3><p style="color:var(--mut)">Role: ${e(currentStaff?.role||'Staff')}. Lock the app when stepping away.</p><button class="btn o" onclick="lockApp()">Lock app</button><button class="btn o s" style="margin-top:10px" onclick="changeMyPin()">Change my PIN</button><h3 style="margin-top:20px">Accounts</h3>${accountRows}${management}${layout}${recovery}</div>${activityPanel}</div>${movementPanel}`
+}function addStaffForm(){
+ if(!requireCEO())return;
+ const roleControl='<label style="margin-top:10px">Role<select id="newStaffRole"><option>Staff</option><option>Manager</option></select></label>';
+ setDialog('Add staff account',`<label>Name<input id="newStaffName" maxlength="40"></label>${roleControl}<label style="margin-top:10px">PIN (4–12 digits)<input id="newStaffPin" type="password" inputmode="numeric" maxlength="12" oninput="this.value=normalizePinInput(this.value)"></label><div class="acts"><button class="btn o" onclick="$('#dlg').close()">Cancel</button><button class="btn" onclick="saveNewStaff()">Save account</button></div>`)
 }
 async function saveNewStaff(){
+ if(!requireCEO())return;
  const name=$('#newStaffName').value.trim(),role=$('#newStaffRole').value,pin=normalizePinInput($('#newStaffPin').value);
+ if(!['Staff','Manager'].includes(role)){toast('Choose a valid account role.');return}
  if(!name){toast('Enter a staff name.');return}if(!/^\d{4,12}$/.test(pin)){toast('Enter a PIN using 4–12 digits.');return}
- try{const salt=randomSalt();S.staff.push({id:uid(),name,role,salt,pinHash:await pinDigest(pin,salt)});addActivity('Staff account added',name);save();$('#dlg').close();staffPage();toast('Staff account added')}
+ try{const salt=randomSalt();S.staff.push({id:uid(),name,role,permissions:[],salt,pinHash:await pinDigest(pin,salt)});addActivity('Staff account added',`${name} · ${role}`);save();$('#dlg').close();staffPage();toast('Staff account added. Assign access in the account list.')}
  catch(x){toast('Could not create this account in the current browser.')}
 }
+function setManagerPermission(id,permission,enabled){
+ if(!requireCEO()){staffPage();return}
+ const user=S.staff.find(x=>x.id===id);
+ if(!user||isRootAdmin(user)||!permissionsForRole(user.role).some(p=>p.key===permission)){toast('Account access setting was not valid.');staffPage();return}
+ const permissions=Array.isArray(user.permissions)?[...user.permissions]:[...DEFAULT_MANAGER_PERMISSIONS];
+ const next=enabled?[...new Set([...permissions,permission])]:permissions.filter(x=>x!==permission);
+ if(permission==='staff'&&!enabled&&!S.staff.some(other=>other.id!==user.id&&['Manager','CEO'].includes(other.role)&&managerHasPermission(other,'staff'))){toast('At least one manager must keep staff-management access.');staffPage();return}
+ user.permissions=next;addActivity('Account access updated',`${user.name}: ${MANAGER_PERMISSIONS.find(p=>p.key===permission).label} ${enabled?'allowed':'removed'}`);save();staffPage();toast('Account access updated')
+}
+function showLayoutOptions(){
+ if(!requireCEO())return;
+ const selected=Array.isArray(S.layoutTabs)?S.layoutTabs:TABS.map(([key])=>key);
+ const options=TABS.map(([key,label])=>`<label class="item" style="cursor:pointer"><span>${e(label)}${['dash','staff'].includes(key)?' · always shown':''}</span><input type="checkbox" value="${e(key)}" style="width:auto;margin:0" ${['dash','staff'].includes(key)?'checked disabled':selected.includes(key)?'checked':''} aria-label="Show ${e(label)} in the app menu"></label>`).join('');
+ setDialog('Customize app layout',`<p style="color:var(--mut)">Choose which existing sections appear in the shared app menu. A visible section does not grant access; each account still needs its assigned permission.</p><div id="layoutOptions" class="panel">${options}</div><div class="acts"><button class="btn o" onclick="$('#dlg').close()">Cancel</button><button class="btn o" onclick="resetAppLayout()">Show all sections</button><button class="btn" onclick="saveAppLayout()">Save layout</button></div>`)
+}
+function saveAppLayout(){
+ if(!requireCEO())return;
+ const selected=Array.from(document.querySelectorAll('#layoutOptions input:checked'),input=>input.value);
+ if(!selected.includes('dash'))selected.unshift('dash');
+ S.layoutTabs=TABS.map(([key])=>key).filter(key=>selected.includes(key));save();$('#dlg').close();render();toast('App layout saved')
+}
+function resetAppLayout(){
+ if(!requireCEO())return;
+ S.layoutTabs=TABS.map(([key])=>key);save();showLayoutOptions();toast('All app sections are shown')
+}
+function removeStaffAccount(id){
+ if(!requireCEO())return;
+ const user=S.staff.find(x=>x.id===id);if(!user||user.id===currentStaff.id||user.role==='CEO'){toast('You cannot remove this administrator account.');return}
+ setDialog(`Remove ${e(user.name)}?`,`<p style="color:var(--mut)">This removes the account and its sign-in access. Existing sales and activity records remain saved under the staff name.</p><div class="acts"><button class="btn o" onclick="$('#dlg').close()">Cancel</button><button class="btn x" onclick="confirmRemoveStaffAccount('${e(user.id)}')">Remove account</button></div>`)
+}
+function confirmRemoveStaffAccount(id){
+ if(!requireCEO())return;
+ const user=S.staff.find(x=>x.id===id);if(!user||user.id===currentStaff.id||user.role==='CEO'){toast('You cannot remove this administrator account.');return}
+ S.staff=S.staff.filter(x=>x.id!==id);addActivity('Staff account removed',`${user.name} · ${user.role}`);save();$('#dlg').close();staffPage();toast('Account removed')
+}
 function resetStaffPin(id){
- if(!requireManager())return;const u=S.staff.find(x=>x.id===id);if(!u)return;
+ if(!requireManager('staff'))return;const u=S.staff.find(x=>x.id===id);if(!u)return;if(u.role!=='Staff'&&!isRootAdmin()){toast('Only the CEO can change a Manager PIN.');return}
  setDialog(`Reset PIN for ${e(u.name)}`,`<p style="color:var(--mut)">The staff member will use this new PIN next time they sign in.</p><label>New PIN (4–12 digits)<input id="resetPin" type="password" inputmode="numeric" maxlength="12" oninput="this.value=normalizePinInput(this.value)"></label><div class="acts"><button class="btn o" onclick="$('#dlg').close()">Cancel</button><button class="btn" onclick="saveResetPin('${e(id)}')">Save PIN</button></div>`)
 }
 async function saveResetPin(id){
- const u=S.staff.find(x=>x.id===id),pin=normalizePinInput($('#resetPin').value);if(!u||!/^\d{4,12}$/.test(pin)){toast('Enter a 4–12 digit PIN.');return}
+ if(!requireManager('staff'))return;
+  const u=S.staff.find(x=>x.id===id),pin=normalizePinInput($('#resetPin').value);if(!u||!/^\d{4,12}$/.test(pin)){toast('Enter a 4–12 digit PIN.');return}if(u.role!=='Staff'&&!isRootAdmin()){toast('Only the CEO can change a Manager PIN.');return}
  try{u.salt=randomSalt();u.pinHash=await pinDigest(pin,u.salt);addActivity('Staff PIN reset',u.name);save();$('#dlg').close();staffPage();toast('PIN updated')}
  catch(x){toast('Could not update the PIN in this browser.')}
 }
