@@ -1,7 +1,6 @@
 import json
 import os
 import shutil
-import threading
 
 import eel
 
@@ -43,13 +42,6 @@ def save_data(text):
         return True
     except Exception:
         return False
-
-
-@eel.expose
-def exit_app():
-    """Stop the desktop app after the browser finishes this request."""
-    threading.Timer(0.3, lambda: os._exit(0)).start()
-    return True
 
 
 if __name__ == "__main__":
