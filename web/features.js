@@ -69,7 +69,20 @@ function recordMovement(m,kind,quantity,before,after,reason='',link=''){
  S.movements=S.movements.slice(0,3000);
  addActivity('Stock '+kind,`${m.name}: ${quantity>0?'+':''}${quantity} units${reason?` (${reason})`:''}`);
 }
-function setDialog(title,body){const dialog=$('#dlg');if(dialog.open)dialog.close();dialog.innerHTML=`<h3>${title}</h3>${body}`;dialog.showModal()}
+function closeDialog(){const dialog=$('#dlg');if(dialog.open)dialog.close()}
+function openDialog(dialog){
+ let close=dialog.querySelector('.dialog-close');
+ if(!close){close=document.createElement('button');close.type='button';close.className='dialog-close';close.setAttribute('aria-label','Close popup');close.title='Close popup';close.textContent='×';close.onclick=closeDialog;dialog.prepend(close)}
+ if(!dialog.querySelector('.dialog-scroll')){
+   const footer=Array.from(dialog.children).find(node=>node.classList.contains('acts'))||null,scroll=document.createElement('div');scroll.className='dialog-scroll';
+   Array.from(dialog.childNodes).forEach(node=>{if(node!==close&&node!==footer)scroll.appendChild(node)});
+   dialog.insertBefore(scroll,close.nextSibling);
+   if(footer){footer.classList.add('dialog-footer');dialog.appendChild(footer)}
+ }
+ dialog.onclick=event=>{if(event.target===dialog)closeDialog()};
+ dialog.showModal()
+}
+function setDialog(title,body){const dialog=$('#dlg');if(dialog.open)dialog.close();dialog.innerHTML=`<h3 class="dialog-title">${title}</h3>${body}`;openDialog(dialog)}
 function normalizePinInput(value){
  const zeroes=[0x0660,0x06f0,0x0966,0x09e6,0x0a66,0x0ae6,0x0b66,0x0be6,0x0c66,0x0ce6,0x0d66,0xff10];
  return Array.from(String(value||'').normalize('NFKC').replace(/[\s-]/g,''),ch=>{const cp=ch.codePointAt(0);if(cp>=48&&cp<=57)return ch;const z=zeroes.find(n=>cp>=n&&cp<n+10);return z===undefined?ch:String(cp-z)}).join('').slice(0,12)
@@ -197,7 +210,7 @@ function installFeatures(){
  const baseRender=render, baseMedForm=medForm, baseSaveMed=saveMed, baseRestock=restock, baseDoRestock=doRestock, baseComplete=complete, baseReceipt=receipt, baseDataTools=dataTools, baseRestore=restoreBackup;
  const baseInvRows=invRows,baseExportInventory=exportInventory,baseExportSales=exportSales,baseExportBackup=exportBackup,baseExportProfit=exportProfit,baseExportMovements=exportMovements,baseReceivePurchase=receivePurchase;
  render=function(){
-   if(!currentStaff){$('#app').innerHTML='<div class="panel"><h2>Sign in required</h2><p>Unlock the app to continue.</p><button class="btn" onclick="showStaffLogin()">Sign in</button></div>';return}
+   if(!currentStaff){$('#app').innerHTML='';if(!$('#dlg').open)showStaffLogin();return}
    if(!visibleTabs().some(t=>t[0]===tab))tab=visibleTabs()[0]?.[0]||'staff';
    if(tab==='buy'){navBar();purchasePage();return}
    if(tab==='staff'){navBar();staffPage();return}
@@ -340,12 +353,12 @@ function staffPage(){
    const limits=ceo&&!isRootAdmin(u)?`<div class="panel" style="margin:0 0 10px"><b>${e(u.name)} access limits</b><div class="grid">${permissionsForRole(u.role).map(p=>`<label class="item" style="cursor:pointer"><span>${e(p.label)}</span><input type="checkbox" style="width:auto;margin:0" ${managerHasPermission(u,p.key)?'checked':''} onchange="setManagerPermission('${e(u.id)}','${p.key}',this.checked)" aria-label="${e(p.label)} for ${e(u.name)}"></label>`).join('')}</div></div>`:'';
    return `<div class="item"><div style="display:flex;align-items:center;gap:10px">${staffPhotoMarkup(u.photo,u.name,42)}<span>${e(u.name)}<small>${e(u.role)} · ${e(u.staffId||'')}</small></span></div>${u.id===currentStaff.id?'<span class="tag">Current</span>':''}</div>${actions.join('')}${limits}`
  }).join('');
- const activityPanel=viewReports?`<div class="panel"><h3>Recent activity</h3>${S.activity?.length?S.activity.slice(0,60).map(a=>`<div class="item"><div>${e(a.action)}<small>${new Date(a.t).toLocaleString()} · ${e(a.staff)}${a.details?' · '+e(a.details):''}</small></div></div>`).join(''):'<div class="empty">Activity will appear here.</div>'}</div>`:`<div class="panel"><h3>Account details</h3><p style="color:var(--mut)">Your access is set by the CEO.</p></div>`;
+ const activityPanel=viewReports?`<div class="panel activity-feed"><h3>Recent activity</h3>${S.activity?.length?S.activity.slice(0,60).map(a=>`<div class="item"><div>${e(a.action)}<small>${new Date(a.t).toLocaleString()} · ${e(a.staff)}${a.details?' · '+e(a.details):''}</small></div></div>`).join(''):'<div class="empty">Activity will appear here.</div>'}</div>`:`<div class="panel"><h3>Account details</h3><p style="color:var(--mut)">Your access is set by the CEO.</p></div>`;
  const movementPanel=viewReports?`<div class="panel"><h3>Stock movement history</h3><button class="btn o s" onclick="exportMovements()">Export movement CSV</button>${S.movements.length?`<div class="tw"><table><thead><tr><th>Date</th><th>Staff</th><th>Medicine / batch</th><th>Type</th><th class="r">Change</th><th class="r">Balance</th><th>Reason / reference</th></tr></thead><tbody>${S.movements.slice(0,150).map(m=>`<tr><td>${new Date(m.t).toLocaleString()}</td><td>${e(m.staff)}</td><td>${e(m.medicine)}<small>${e(m.batch)}</small></td><td>${e(m.kind)}</td><td class="r">${m.quantity>0?'+':''}${m.quantity}</td><td class="r">${m.after}</td><td>${e(m.reason||'')}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Stock changes will appear here.</div>'}</div>`:'';
  const management=ceo?`<button class="btn" style="margin-top:12px" onclick="addStaffForm()">Add account</button>`:'';
  const recovery=ceo?`<button class="btn o" style="margin-top:8px" onclick="generateCEORecoveryCode()">${S.managerRecovery?.hash?'Replace':'Create'} CEO recovery code</button><p style="color:var(--mut);margin-bottom:0">Only the CEO can assign account access, change the shared app layout, and add or remove accounts. Store the recovery code somewhere private; it is shown once and replaces the previous code.</p>`:admin&&!canManageStaff?'<p style="color:var(--mut)">This manager account cannot manage staff PINs.</p>':'';
  const layout=ceo?'<button class="btn o" style="margin-top:8px" onclick="showLayoutOptions()">Customize app layout</button>':'';
-  $('#app').innerHTML=`<h2>Staff & activity</h2><div class="two"><div class="panel"><h3>Signed in as ${e(currentStaff?.name||'')}</h3><p style="color:var(--mut)">Role: ${e(currentStaff?.role||'Staff')}. Lock the app when stepping away.</p><button class="btn o" onclick="lockApp()">Lock app</button><button class="btn o s" style="margin-top:10px" onclick="changeMyPin()">Change my PIN</button><h3 style="margin-top:20px">Staff section</h3>${search}${accountRows||(q?'<div class="empty">No staff match that search.</div>':'<div class="empty">No staff accounts found.</div>')}${management}${layout}${recovery}</div>${activityPanel}</div>${movementPanel}`
+  $('#app').innerHTML=`<h2>Staff & activity</h2><div class="two"><div class="panel"><h3>Signed in as ${e(currentStaff?.name||'')}</h3><p style="color:var(--mut)">Role: ${e(currentStaff?.role||'Staff')}.</p><button class="btn o s" style="margin-top:10px" onclick="changeMyPin()">Change my PIN</button><h3 style="margin-top:20px">Staff section</h3>${search}${accountRows||(q?'<div class="empty">No staff match that search.</div>':'<div class="empty">No staff accounts found.</div>')}${management}${layout}${recovery}</div>${activityPanel}</div>${movementPanel}`
 }function staffPhotoMarkup(photo,name,size=54){
  const initials=String(name||'?').trim().split(/\s+/).slice(0,2).map(part=>part[0]||'').join('').toUpperCase()||'?';
  const style=`width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;flex:none;border:1px solid var(--ln)`;
