@@ -12,6 +12,10 @@
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 "Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+html[lang="bn"] body{font-family:"Nirmala UI","Vrinda","Shonar Bangla","Noto Sans Bengali",system-ui,sans-serif}
+.lang{display:flex;gap:6px;margin-left:auto}
+.lang button{font:inherit;font-size:13px;font-weight:600;padding:4px 10px;border-radius:8px;border:1px solid var(--ln);background:none;color:var(--mut);cursor:pointer}
+.lang button.on{border-color:var(--ac);background:var(--gb);color:var(--ac)}
 header{background:var(--sf);border-bottom:1px solid var(--ln);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
 .bar{max-width:1100px;margin:auto;display:flex;align-items:center;gap:20px;padding:10px 16px;flex-wrap:wrap}
 .logo{font-weight:700;font-size:18px;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
@@ -77,11 +81,12 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 </style></head>
 <body>
 <header><div class="bar"><div class="logo"><i></i>Pharmacy Manager</div>
-<nav id="nav"></nav></div></header>
+<nav id="nav"></nav><div class="lang" role="group" aria-label="Language"><button type="button" data-lang="en" onclick="setLanguage('en')">EN</button><button type="button" data-lang="bn" onclick="setLanguage('bn')">বাংলা</button></div></div></header>
 <main id="app"></main>
 <dialog id="dlg"></dialog>
 <div id="toast" role="status"></div>
 <script src="features.js"></script>
+<script src="i18n.js"></script>
 <script>
 const KEY='pharmacy-manager-v1';
 let S={meds:[],sales:[]},tab='dash',cart=[],q='',flt='all';
@@ -139,7 +144,7 @@ function exportBackup(){downloadFile('pharmacy-backup-'+new Date().toISOString()
 function restoreBackup(input){
  const file=input.files&&input.files[0];if(!file)return;
  const reader=new FileReader();reader.onload=()=>{try{const x=JSON.parse(reader.result);if(!x||!Array.isArray(x.meds)||!Array.isArray(x.sales)||!x.meds.every(m=>m&&typeof m==='object'&&typeof m.name==='string'&&Number.isFinite(+m.qty))||!x.sales.every(s=>s&&typeof s==='object'&&Array.isArray(s.items)&&Number.isFinite(+s.total)))throw Error('shape');
-   if(!confirm('Replace current medicines and sales with the selected backup? Export a backup first if you may need the current data.'))return;
+   if(!confirm(i18nText('Replace current medicines and sales with the selected backup? Export a backup first if you may need the current data.')))return;
    S={...S,meds:x.meds,sales:x.sales,staff:Array.isArray(x.staff)?x.staff:S.staff,movements:Array.isArray(x.movements)?x.movements:S.movements,purchases:Array.isArray(x.purchases)?x.purchases:S.purchases,activity:Array.isArray(x.activity)?x.activity:S.activity};currentStaff=null;save();toast('Backup restored');showStaffLogin()
   }catch(err){toast('That file is not a valid Pharmacy Manager backup.')}finally{input.value=''}};reader.readAsText(file)
 }
@@ -250,5 +255,5 @@ function hist(){
  const L=[...S.sales].reverse(),sum=S.sales.reduce((a,s)=>a+s.total,0);
  $('#app').innerHTML=`<h2>Sales history</h2><div class="grid"><div class="stat"><b>${S.sales.length}</b><span>Bills issued</span></div><div class="stat"><b>${money(sum)}</b><span>Total sales</span></div></div>
  <div class="panel tw">${L.length?`<table><thead><tr><th>Bill</th><th>Date</th><th>Customer</th><th>Items</th><th class="r">Total</th><th></th></tr></thead><tbody>${L.map(s=>`<tr><td>${s.id}</td><td>${new Date(s.t).toLocaleString()}</td><td>${e(s.cust)}</td><td>${s.items.reduce((a,i)=>a+i.qty,0)}</td><td class="r">${money(s.total)}</td><td class="r"><button class="btn o s" onclick="receipt('${s.id}')">View</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">No sales yet. Complete a bill in New sale and it will show up here.</div>'}</div>`}
-load().then(()=>{initFeatures();installFeatures();render()});
+load().then(()=>{initFeatures();installFeatures();render();window.appReady=true});
 </script></body></html>

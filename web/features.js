@@ -71,15 +71,20 @@ function recordMovement(m,kind,quantity,before,after,reason='',link=''){
 }
 function closeDialog(){const dialog=$('#dlg');if(dialog.open)dialog.close()}
 function openDialog(dialog){
+ // Before sign-in, the sign-in window must stay open: no backdrop click, Esc or × closing.
+ const locked=!currentStaff;
  let close=dialog.querySelector('.dialog-close');
  if(!close){close=document.createElement('button');close.type='button';close.className='dialog-close';close.setAttribute('aria-label','Close popup');close.title='Close popup';close.textContent='×';close.onclick=closeDialog;dialog.prepend(close)}
+ close.style.display=locked?'none':'';
  if(!dialog.querySelector('.dialog-scroll')){
    const footer=Array.from(dialog.children).find(node=>node.classList.contains('acts'))||null,scroll=document.createElement('div');scroll.className='dialog-scroll';
    Array.from(dialog.childNodes).forEach(node=>{if(node!==close&&node!==footer)scroll.appendChild(node)});
+   if(locked)scroll.insertAdjacentHTML('afterbegin',languageSwitchHTML());
    dialog.insertBefore(scroll,close.nextSibling);
    if(footer){footer.classList.add('dialog-footer');dialog.appendChild(footer)}
  }
- dialog.onclick=event=>{if(event.target===dialog)closeDialog()};
+ dialog.onclick=event=>{if(event.target===dialog&&!locked)closeDialog()};
+ dialog.oncancel=event=>{if(locked)event.preventDefault()};
  dialog.showModal()
 }
 function setDialog(title,body){const dialog=$('#dlg');if(dialog.open)dialog.close();dialog.innerHTML=`<h3 class="dialog-title">${title}</h3>${body}`;openDialog(dialog)}
