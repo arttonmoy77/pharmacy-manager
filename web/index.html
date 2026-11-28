@@ -81,11 +81,12 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 </style></head>
 <body>
 <header><div class="bar"><div class="logo"><i></i>Pharmacy Manager</div>
-<nav id="nav"></nav><div class="lang" role="group" aria-label="Language"><button type="button" data-lang="en" onclick="setLanguage('en')">EN</button><button type="button" data-lang="bn" onclick="setLanguage('bn')">বাংলা</button></div></div></header>
+<nav id="nav"></nav><div class="lang" role="group" aria-label="Language"><button type="button" id="themeBtn" onclick="toggleTheme()">Day mode</button><button type="button" data-lang="en" onclick="setLanguage('en')">EN</button><button type="button" data-lang="bn" onclick="setLanguage('bn')">বাংলা</button></div></div></header>
 <main id="app"></main>
 <dialog id="dlg"></dialog>
 <div id="toast" role="status"></div>
 <script src="features.js"></script>
+<script src="expenses.js"></script>
 <script src="i18n.js"></script>
 <script>
 const KEY='pharmacy-manager-v1';
@@ -145,7 +146,7 @@ function restoreBackup(input){
  const file=input.files&&input.files[0];if(!file)return;
  const reader=new FileReader();reader.onload=()=>{try{const x=JSON.parse(reader.result);if(!x||!Array.isArray(x.meds)||!Array.isArray(x.sales)||!x.meds.every(m=>m&&typeof m==='object'&&typeof m.name==='string'&&Number.isFinite(+m.qty))||!x.sales.every(s=>s&&typeof s==='object'&&Array.isArray(s.items)&&Number.isFinite(+s.total)))throw Error('shape');
    if(!confirm(i18nText('Replace current medicines and sales with the selected backup? Export a backup first if you may need the current data.')))return;
-   S={...S,meds:x.meds,sales:x.sales,staff:Array.isArray(x.staff)?x.staff:S.staff,movements:Array.isArray(x.movements)?x.movements:S.movements,purchases:Array.isArray(x.purchases)?x.purchases:S.purchases,activity:Array.isArray(x.activity)?x.activity:S.activity};currentStaff=null;save();toast('Backup restored');showStaffLogin()
+   S={...S,meds:x.meds,sales:x.sales,staff:Array.isArray(x.staff)?x.staff:S.staff,movements:Array.isArray(x.movements)?x.movements:S.movements,purchases:Array.isArray(x.purchases)?x.purchases:S.purchases,activity:Array.isArray(x.activity)?x.activity:S.activity,expenses:Array.isArray(x.expenses)?x.expenses:S.expenses};currentStaff=null;save();toast('Backup restored');showStaffLogin()
   }catch(err){toast('That file is not a valid Pharmacy Manager backup.')}finally{input.value=''}};reader.readAsText(file)
 }
 function dataTools(){

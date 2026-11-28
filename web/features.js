@@ -22,7 +22,9 @@ function managerFeatureAllowed(permission){
 function visibleTabs(){
  const capability={dash:'reports',inv:'inventory',sell:'sales',hist:'sales',buy:'purchases',data:'reports'};
  const configured=Array.isArray(S.layoutTabs)?S.layoutTabs:null;
- return TABS.filter(([key])=>(key==='staff'||!configured||configured.includes(key))&&(key==='data'?managerCan('reports'):!capability[key]||managerCan(capability[key])))
+ const list=TABS.filter(([key])=>(key==='staff'||!configured||configured.includes(key))&&(key==='data'?managerCan('reports'):!capability[key]||managerCan(capability[key])));
+ if(isRootAdmin()){const i=list.findIndex(t=>t[0]==='staff');list.splice(i<0?list.length:i,0,['exp','Expenses'])}
+ return list
 }
 function requireManager(permission='staff'){
  if(!currentStaff||!['Manager','CEO'].includes(currentStaff.role)){toast('Manager access is required.');return false}
@@ -52,6 +54,7 @@ function initFeatures(){
  S.staff=Array.isArray(S.staff)?S.staff:[];
  S.movements=Array.isArray(S.movements)?S.movements:[];
  S.purchases=Array.isArray(S.purchases)?S.purchases:[];
+ S.expenses=Array.isArray(S.expenses)?S.expenses:[];
  ensureCEO();
  S.meds.forEach(m=>{if(m.unitCost==null)m.unitCost=null;if(m.barcode==null)m.barcode=''});
  TABS.push(['buy','Purchases'],['staff','Staff & activity']);
@@ -215,10 +218,12 @@ function installFeatures(){
  const baseRender=render, baseMedForm=medForm, baseSaveMed=saveMed, baseRestock=restock, baseDoRestock=doRestock, baseComplete=complete, baseReceipt=receipt, baseDataTools=dataTools, baseRestore=restoreBackup;
  const baseInvRows=invRows,baseExportInventory=exportInventory,baseExportSales=exportSales,baseExportBackup=exportBackup,baseExportProfit=exportProfit,baseExportMovements=exportMovements,baseReceivePurchase=receivePurchase;
  render=function(){
+   applyTheme();
    if(!currentStaff){$('#app').innerHTML='';if(!$('#dlg').open)showStaffLogin();return}
    if(!visibleTabs().some(t=>t[0]===tab))tab=visibleTabs()[0]?.[0]||'staff';
    if(tab==='buy'){navBar();purchasePage();return}
    if(tab==='staff'){navBar();staffPage();return}
+   if(tab==='exp'){navBar();expensesPage();return}
    baseRender();
    navBar();
    if(tab==='data'&&managerCan('reports'))appendProfitPanel();
